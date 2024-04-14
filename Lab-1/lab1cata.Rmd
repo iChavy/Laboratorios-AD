@@ -82,17 +82,17 @@ datos_normalizados$classification <- ifelse(datos_normalizados$classification ==
 Calculo media, mediana, moda y desviación estándar
 ```{r}
 #Calculo media y mediana
-medias <- sapply(datos_limpios, mean, na.rm = TRUE)
-medianas <- sapply(datos_limpios, median, na.rm = TRUE)
+medias <- sapply(datos_normalizados, mean, na.rm = TRUE)
+medianas <- sapply(datos_normalizados, median, na.rm = TRUE)
 
 # Calculo moda de variables categóricas
 variables_categoricas <- c("rbc", "pc", "pcc", "ba", "htn", "dm", "cad", "appet", "pe", "ane", "classification")
-modas <- lapply(datos_limpios[variables_categoricas], function(x) {
+modas <- lapply(datos_normalizados[variables_categoricas], function(x) {
   tab <- table(x)
   names(tab)[tab == max(tab)]
 })
 
-desviaciones <- sapply(datos_limpios, sd, na.rm = TRUE)
+desviaciones <- sapply(datos_normalizados, sd, na.rm = TRUE)
 
 #Se crea un dataframe para la media, la mediana y la desviación estándar
 resultados <- data.frame(Media = medias, Mediana = medianas, Desvicion_Estandar = desviaciones)
@@ -103,41 +103,12 @@ resultados_moda <- data.frame(Moda = modas)
 print(resultados)
 ```
 
-```{r}
-```
-
-
-```{r}
-columna_id <- datos$id
-columna_classification <- datos$classification
-tabla_datos <- data.frame(id = columna_id, classification = columna_classification)
-
-columna_borrar <-datos_transformados$classification
-columna_id_borrar <- datos_transformados$id
-tabla_datos_2 <- data.frame(id = columna_id_borrar, classification = columna_borrar)
-
-# Contar las ocurrencias de "notcdk" y "cdk" en tabla_datos
-conteo_not_cdk_tabla_datos <- sum(tabla_datos$classification == "notckd")
-conteo_cdk_tabla_datos <- sum(tabla_datos$classification == "ckd")
-
-# Contar las ocurrencias de 0 y 1 en tabla_datos_2
-conteo_0_tabla_datos_2 <- sum(tabla_datos_2$classification == 0)
-conteo_1_tabla_datos_2 <- sum(tabla_datos_2$classification == 1)
-
-# Mostrar los resultados
-print(paste("Total de ocurrencias de 'notcdk' en tabla_datos:", conteo_not_cdk_tabla_datos))
-print(paste("Total de ocurrencias de 'cdk' en tabla_datos:", conteo_cdk_tabla_datos))
-
-print(paste("Total de ocurrencias de '0' en tabla_datos_2:", conteo_0_tabla_datos_2))
-print(paste("Total de ocurrencias de '1' en tabla_datos_2:", conteo_1_tabla_datos_2))
-```
-
 Conteo enfermos y sanos
 ```{r}
 ### BORRAR #### -> cdk/enferma? = 1, notcdk = 0 
 # Contar personas enfermas (1) y sanas (0)
-total_enfermos <- sum(datos_transformados$classification == 1)
-total_sanos <- sum(datos_transformados$classification == 0)
+total_enfermos <- sum(datos_normalizados$classification == 1)
+total_sanos <- sum(datos_normalizados$classification == 0)
 
 # Mostrar los resultados 
 print(paste("El número de personas enfermas es:", total_enfermos))
@@ -147,8 +118,8 @@ print(paste("El número de personas sanas:", total_sanos))
 Grafico de barras
 ```{r}
 # Filtrar el número de personas enfermas y sanas
-enfermos <- datos_transformados %>% filter(classification == 1)
-sanos <- datos_transformados %>% filter(classification == 0)
+enfermos <- datos_normalizados %>% filter(classification == 1)
+sanos <- datos_normalizados %>% filter(classification == 0)
 
 # Crear un dataframe para la gráfica
 estado_salud <- data.frame(estado = c("Enfermos", "Sanos"),
