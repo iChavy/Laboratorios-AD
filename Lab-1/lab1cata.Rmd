@@ -1,0 +1,172 @@
+---
+title: "lab1cata"
+author: "Catalina Olivares"
+date: "2024-04-08"
+output: html_document
+---
+
+Instalación y apertura de librerías
+```{r}
+#install.packages("foreign")
+#install.packages("RWeka") 
+
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+```
+
+Apertura de dataset
+```{r setup, include=FALSE}
+
+# Se selecciona el directorio del archivo
+#setwd("/Users/chavy/Documents/Repositorios GitKraken/Laboratorios-AD/Lab-1")
+#setwd("C:/Users/cata/Desktop/Analisislab1")
+
+# Se carga el archivo CSV
+datos <- read.csv("kidney_disease.csv")
+
+# Comprueba que los datos se han cargado correctamente
+#str(datos)
+```
+
+```{r}
+# el code no s eusa al parecer, borrar
+copia_datos_borrar<-datos
+
+#Columnas
+colnames(copia_datos) <- c("age", "bp", "sg", "al", "su", "rbc", "pc", "pcc", "ba", "bgr", "bu", "sc", "sod", "pot", "hemo", "pcv", "wc", "rc", "htn", "dm", "cad", "appet", "pe", "ane", "classification")
+
+```
+
+Limpieza de datos
+```{r}
+### borrar ###
+num_filas <- nrow(datos)
+print(paste("El dataframe 'datos' tiene", num_filas, "filas."))
+##############
+
+# Reemplazar espacio en blanco con NA
+copia_datos <- datos
+copia_datos[copia_datos == ""] <- NA
+
+# Limpieza de variables
+datos_limpios <- na.omit(copia_datos)
+#Quitar columna id
+datos_limpios <- datos_limpios[,-1]
+
+
+### borrar ###
+num_filas_sin_NA <- nrow(datos_limpios)
+print(paste("El dataframe 'datos_limpios' tiene", num_filas_sin_NA, "filas."))
+##############
+```
+
+Normalización de datos
+```{r}
+datos_normalizados <- datos_limpios
+# Binarización de variables categóricas
+#######BORRAR -> los valores normal, present, yes, good y cdk toman el valor 1)
+datos_normalizados$rbc <- ifelse(datos_normalizados$rbc == "normal", 1, 0)
+datos_normalizados$pc <- ifelse(datos_normalizados$pc == "normal", 1, 0)
+datos_normalizados$pcc <- ifelse(datos_normalizados$pcc == "present", 1, 0)
+datos_normalizados$ba <- ifelse(datos_normalizados$ba == "present", 1, 0)
+datos_normalizados$htn <- ifelse(datos_normalizados$htn == "yes", 1, 0)
+datos_normalizados$dm <- ifelse(datos_normalizados$dm == "yes", 1, 0)
+datos_normalizados$cad <- ifelse(datos_normalizados$cad == "yes", 1, 0)
+datos_normalizados$appet <- ifelse(datos_normalizados$appet == "good", 1, 0)
+datos_normalizados$pe <- ifelse(datos_normalizados$pe == "yes", 1, 0)
+datos_normalizados$ane <- ifelse(datos_normalizados$ane == "yes", 1, 0)
+datos_normalizados$classification <- ifelse(datos_normalizados$classification == "ckd", 1, 0)
+```
+
+Calculo media, mediana, moda y desviación estándar
+```{r}
+#Calculo media y mediana
+medias <- sapply(datos_limpios, mean, na.rm = TRUE)
+medianas <- sapply(datos_limpios, median, na.rm = TRUE)
+
+# Calculo moda de variables categóricas
+variables_categoricas <- c("rbc", "pc", "pcc", "ba", "htn", "dm", "cad", "appet", "pe", "ane", "classification")
+modas <- lapply(datos_limpios[variables_categoricas], function(x) {
+  tab <- table(x)
+  names(tab)[tab == max(tab)]
+})
+
+desviaciones <- sapply(datos_limpios, sd, na.rm = TRUE)
+
+#Se crea un dataframe para la media, la mediana y la desviación estándar
+resultados <- data.frame(Media = medias, Mediana = medianas, Desvicion_Estandar = desviaciones)
+
+#Se crea un dataframe para la moda
+resultados_moda <- data.frame(Moda = modas)
+
+print(resultados)
+```
+
+```{r}
+```
+
+
+```{r}
+columna_id <- datos$id
+columna_classification <- datos$classification
+tabla_datos <- data.frame(id = columna_id, classification = columna_classification)
+
+columna_borrar <-datos_transformados$classification
+columna_id_borrar <- datos_transformados$id
+tabla_datos_2 <- data.frame(id = columna_id_borrar, classification = columna_borrar)
+
+# Contar las ocurrencias de "notcdk" y "cdk" en tabla_datos
+conteo_not_cdk_tabla_datos <- sum(tabla_datos$classification == "notckd")
+conteo_cdk_tabla_datos <- sum(tabla_datos$classification == "ckd")
+
+# Contar las ocurrencias de 0 y 1 en tabla_datos_2
+conteo_0_tabla_datos_2 <- sum(tabla_datos_2$classification == 0)
+conteo_1_tabla_datos_2 <- sum(tabla_datos_2$classification == 1)
+
+# Mostrar los resultados
+print(paste("Total de ocurrencias de 'notcdk' en tabla_datos:", conteo_not_cdk_tabla_datos))
+print(paste("Total de ocurrencias de 'cdk' en tabla_datos:", conteo_cdk_tabla_datos))
+
+print(paste("Total de ocurrencias de '0' en tabla_datos_2:", conteo_0_tabla_datos_2))
+print(paste("Total de ocurrencias de '1' en tabla_datos_2:", conteo_1_tabla_datos_2))
+```
+
+Conteo enfermos y sanos
+```{r}
+### BORRAR #### -> cdk/enferma? = 1, notcdk = 0 
+# Contar personas enfermas (1) y sanas (0)
+total_enfermos <- sum(datos_transformados$classification == 1)
+total_sanos <- sum(datos_transformados$classification == 0)
+
+# Mostrar los resultados 
+print(paste("El número de personas enfermas es:", total_enfermos))
+print(paste("El número de personas sanas:", total_sanos))
+```
+
+Grafico de barras
+```{r}
+# Filtrar el número de personas enfermas y sanas
+enfermos <- datos_transformados %>% filter(classification == 1)
+sanos <- datos_transformados %>% filter(classification == 0)
+
+# Crear un dataframe para la gráfica
+estado_salud <- data.frame(estado = c("Enfermos", "Sanos"),
+                           total_personas = c(total_enfermos, total_sanos))
+
+# Calcula las proporciones 
+proporciones_estado_salud <- round(estado_salud$total_personas / sum(estado_salud$total_personas), 2)
+estado_salud$proporciones <- proporciones_estado_salud
+
+# Gráfico de barras
+ggplot(estado_salud, aes(x = estado, y = total_personas, fill = estado)) +
+  geom_bar(stat = "identity") + 
+  labs(x = "Estado de salud",
+       y = "Cantidad de personas",
+       title = "Comparación de personas enfermas y sanas") +
+  scale_fill_manual(values = c("Enfermos" = "red", "Sanos" = "green")) +
+  geom_text(aes(label = paste("Proporción:", proporciones)), vjust = -0.5) +
+  theme_minimal()
+
+
+```
