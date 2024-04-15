@@ -5,11 +5,14 @@ date: "2024-04-08"
 output: html_document
 ---
 
-Instalación y apertura de librerías
+Instalación y apertura de librerías -> checar bien que librerias funciona (vim impute)
 ```{r}
 #install.packages("foreign")
 #install.packages("RWeka") 
+#install.packages("impute")
 
+#library(VIM)
+library(impute)
 library(ggplot2)
 library(dplyr)
 library(tidyr)
@@ -17,55 +20,32 @@ library(tidyr)
 
 Apertura de dataset
 ```{r setup, include=FALSE}
-
 # Se selecciona el directorio del archivo
 #setwd("/Users/chavy/Documents/Repositorios GitKraken/Laboratorios-AD/Lab-1")
 #setwd("C:/Users/cata/Desktop/Analisislab1")
 
 # Se carga el archivo CSV
 datos <- read.csv("kidney_disease.csv")
-
-# Comprueba que los datos se han cargado correctamente
-#str(datos)
-```
-
-```{r}
-# el code no s eusa al parecer, borrar
-copia_datos_borrar<-datos
-
-#Columnas
-colnames(copia_datos) <- c("age", "bp", "sg", "al", "su", "rbc", "pc", "pcc", "ba", "bgr", "bu", "sc", "sod", "pot", "hemo", "pcv", "wc", "rc", "htn", "dm", "cad", "appet", "pe", "ane", "classification")
-
 ```
 
 Limpieza de datos
 ```{r}
-### borrar ###
-num_filas <- nrow(datos)
-print(paste("El dataframe 'datos' tiene", num_filas, "filas."))
-##############
-
-# Reemplazar espacio en blanco con NA
+# Reemplaza espacios en blanco con NA
 copia_datos <- datos
 copia_datos[copia_datos == ""] <- NA
 
-# Limpieza de variables
-datos_limpios <- na.omit(copia_datos)
-#Quitar columna id
-datos_limpios <- datos_limpios[,-1]
+# Imputación KNN
+datos_imputados <- kNN(data = copia_datos, imp_var = FALSE)
 
-
-### borrar ###
-num_filas_sin_NA <- nrow(datos_limpios)
-print(paste("El dataframe 'datos_limpios' tiene", num_filas_sin_NA, "filas."))
-##############
+# Quita columna id
+datos_limpios <- datos_imputados[,-1]
 ```
 
 Normalización de datos
 ```{r}
 datos_normalizados <- datos_limpios
 # Binarización de variables categóricas
-#######BORRAR -> los valores normal, present, yes, good y cdk toman el valor 1)
+# Los valores normal, present, yes, good y cdk toman el valor 1)
 datos_normalizados$rbc <- ifelse(datos_normalizados$rbc == "normal", 1, 0)
 datos_normalizados$pc <- ifelse(datos_normalizados$pc == "normal", 1, 0)
 datos_normalizados$pcc <- ifelse(datos_normalizados$pcc == "present", 1, 0)
@@ -79,53 +59,28 @@ datos_normalizados$ane <- ifelse(datos_normalizados$ane == "yes", 1, 0)
 datos_normalizados$classification <- ifelse(datos_normalizados$classification == "ckd", 1, 0)
 ```
 
-Calculo media, mediana, moda y desviación estándar
-```{r}
-#Calculo media y mediana
-medias <- sapply(datos_normalizados, mean, na.rm = TRUE)
-medianas <- sapply(datos_normalizados, median, na.rm = TRUE)
-
-# Calculo moda de variables categóricas
-variables_categoricas <- c("rbc", "pc", "pcc", "ba", "htn", "dm", "cad", "appet", "pe", "ane", "classification")
-modas <- lapply(datos_normalizados[variables_categoricas], function(x) {
-  tab <- table(x)
-  names(tab)[tab == max(tab)]
-})
-
-desviaciones <- sapply(datos_normalizados, sd, na.rm = TRUE)
-
-#Se crea un dataframe para la media, la mediana y la desviación estándar
-resultados <- data.frame(Media = medias, Mediana = medianas, Desvicion_Estandar = desviaciones)
-
-#Se crea un dataframe para la moda
-resultados_moda <- data.frame(Moda = modas)
-
-print(resultados)
-```
-
 Conteo enfermos y sanos
 ```{r}
-### BORRAR #### -> cdk/enferma? = 1, notcdk = 0 
-# Contar personas enfermas (1) y sanas (0)
+# Cuenta a las personas enfermas (1) y sanas (0)
 total_enfermos <- sum(datos_normalizados$classification == 1)
 total_sanos <- sum(datos_normalizados$classification == 0)
 
-# Mostrar los resultados 
+# Muestra el número de personas enfermas y sanas
 print(paste("El número de personas enfermas es:", total_enfermos))
 print(paste("El número de personas sanas:", total_sanos))
 ```
 
-Grafico de barras
+Gráfico de barras
 ```{r}
-# Filtrar el número de personas enfermas y sanas
+# Filtra el número de personas enfermas y sanas
 enfermos <- datos_normalizados %>% filter(classification == 1)
 sanos <- datos_normalizados %>% filter(classification == 0)
 
-# Crear un dataframe para la gráfica
+# Crea un dataframe para la gráfica
 estado_salud <- data.frame(estado = c("Enfermos", "Sanos"),
                            total_personas = c(total_enfermos, total_sanos))
 
-# Calcula las proporciones 
+# Calcula las proporciones y las añade al dataframe
 proporciones_estado_salud <- round(estado_salud$total_personas / sum(estado_salud$total_personas), 2)
 estado_salud$proporciones <- proporciones_estado_salud
 
@@ -138,6 +93,139 @@ ggplot(estado_salud, aes(x = estado, y = total_personas, fill = estado)) +
   scale_fill_manual(values = c("Enfermos" = "red", "Sanos" = "green")) +
   geom_text(aes(label = paste("Proporción:", proporciones)), vjust = -0.5) +
   theme_minimal()
+```
 
+Calcula medidas de dispersion para personas enferemas
+```{r}
+# Se seleccionan solo las variables numéricas
+# Y se filtra el conjunto de datos para obtener solo las personas enfermas
+# Junto con las variables númericas
+personas_enfermas <- datos_normalizados[datos_normalizados$classification == 1, ]
+p_enfermas_numericas <- personas_enfermas[sapply(personas_enfermas, is.numeric)]
 
+# Se calculan las medidas de dispersión para las variables numéricas de las personas enfermas
+rangos_enfermas <- apply(p_enfermas_numericas, 2, function(x) diff(range(x, na.rm = TRUE)))
+varianzas_enfermas <- apply(p_enfermas_numericas, 2, function(x) var(x, na.rm = TRUE))
+desviaciones_enfermas <- apply(p_enfermas_numericas, 2, function(x) sd(x, na.rm = TRUE))
+cuartiles_enfermas <- t(apply(p_enfermas_numericas, 2, function(x) quantile(x, probs = c(0.25, 0.5, 0.75), na.rm = TRUE)))
+coeficientes_variacion_enfermas <- apply(p_enfermas_numericas, 2, function(x) sd(x, na.rm = TRUE) / mean(x, na.rm = TRUE) * 100)
+
+# Se crea un dataframe para las medidas de dispersión
+resultados_dispersion_enfermas <- data.frame(
+  Rango = rangos_enfermas, 
+  Varianza = varianzas_enfermas, 
+  Desviacion_Estandar = desviaciones_enfermas,
+  Cuartil_25 = cuartiles_enfermas[, 1],
+  Mediana = cuartiles_enfermas[, 2],
+  Cuartil_75 = cuartiles_enfermas[, 3],
+  Coeficiente_de_Variacion = coeficientes_variacion_enfermas
+)
+
+print (resultados_dispersion_enfermas)
+```
+
+Calcula medidas de dispersion para personas sanas
+```{r}
+# Se seleccionan solo las variables numéricas
+# Y se filtra el conjunto de datos para obtener solo las personas sanas
+# Junto con las variables númericas
+personas_sanas <- datos_normalizados[datos_normalizados$classification == 0, ]
+p_sanas_numericas <- personas_sanas[sapply(personas_sanas, is.numeric)]
+
+# Se calculan las medidas de dispersión para las variables numéricas de las personas sanas
+rangos_sanas <- apply(p_sanas_numericas, 2, function(x) diff(range(x, na.rm = TRUE)))
+varianzas_sanas <- apply(p_sanas_numericas, 2, function(x) var(x, na.rm = TRUE))
+desviaciones_sanas <- apply(p_sanas_numericas, 2, function(x) sd(x, na.rm = TRUE))
+cuartiles_sanas <- t(apply(p_sanas_numericas, 2, function(x) quantile(x, probs = c(0.25, 0.5, 0.75), na.rm = TRUE)))
+coeficientes_variacion_sanas <- apply(p_sanas_numericas, 2, function(x) sd(x, na.rm = TRUE) / mean(x, na.rm = TRUE) * 100)
+
+# Se crea un dataframe para las medidas de dispersión
+resultados_dispersion_sanas <- data.frame(
+  Rango = rangos_sanas, 
+  Varianza = varianzas_sanas, 
+  Desviacion_Estandar = desviaciones_sanas,
+  Cuartil_25 = cuartiles_sanas[, 1],
+  Mediana = cuartiles_sanas[, 2],
+  Cuartil_75 = cuartiles_sanas[, 3],
+  Coeficiente_de_Variacion = coeficientes_variacion_sanas
+)
+print(resultados_dispersion_sanas)
+```
+
+Gráfico de barras para variables categóricas en personas enfermas
+```{r}
+# Se seleccionan las variables categóricas
+variables_categoricas <- c("rbc", "pc", "pcc", "ba", "htn", "dm", "cad", "appet", "pe", "ane")
+
+# Se crea un gráfico de barras para cada variable categórica para las personas enfermas
+for (variable in variables_categoricas) {
+  # Se añade un dataframe para el gráfico de barras de la variable actual
+  datos_barras <- data.frame(valor = factor(personas_enfermas[[variable]]))
+  
+  # Creación del gráfico de barras
+  p <- ggplot(datos_barras, aes(x = valor, fill = valor)) +
+    geom_bar() +
+    labs(title = paste("Distribución de", variable, "en personas enfermas"),
+         x = variable,
+         y = "Frecuencia") +
+    theme_minimal() +
+    scale_fill_manual(values = c("red", "green"))
+  
+  # Se muestra el gráfico
+  print(p)
+}
+```
+
+Gráfico de barras para variables categóricas en personas sanas
+```{r}
+
+# Imprimir tabla de frecuencia de cada variable categórica para personas sanas
+for (variable in variables_categoricas) {
+  print(table(personas_sanas[[variable]]))
+}
+
+# Se crea un gráfico de barras para cada variable categórica para las personas sanas
+for (variable in variables_categoricas) {
+  # Se añade un dataframe para el gráfico de barras de la variable actual
+  datos_barras <- data.frame(valor = factor(personas_sanas[[variable]]))
+  
+  # Creación del gráfico de barras
+  p <- ggplot(datos_barras, aes(x = valor, fill = valor)) +
+    geom_bar() +
+    labs(title = paste("Distribución de", variable, "en personas sanas"),
+         x = variable,
+         y = "Frecuencia") +
+    theme_minimal() +
+    scale_fill_manual(values = c("red", "green"))
+  
+  # Se muestra el gráfico
+  print(p)
+}
+```
+
+Box plots para variables numéricas
+```{r}
+# Variables numéricas
+datos_numericos <- datos_normalizados %>%
+  select_if(is.numeric)
+
+# Se crean box plots para cada variable numérica
+boxplots <- list()
+for (columna in colnames(datos_numericos)) {
+  boxplot_data <- bind_rows(
+    mutate(personas_enfermas, Estado = "Enfermo"),
+    mutate(personas_sanas, Estado = "Sano")
+  ) %>%
+    ggplot(aes(x = Estado, y = !!sym(columna), fill = Estado)) +
+    geom_boxplot() +
+    labs(title = paste("Boxplot de", columna),
+         x = "Estado de Salud",
+         y = "Valor") +
+    theme_minimal()
+  boxplots[[columna]] <- boxplot_data
+}
+# Se muestran los box plots
+for (plot in boxplots) {
+  print(plot)
+}
 ```
