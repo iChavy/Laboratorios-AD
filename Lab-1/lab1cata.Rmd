@@ -11,8 +11,8 @@ Instalación y apertura de librerías -> checar bien que librerias funciona (vim
 #install.packages("RWeka") 
 #install.packages("impute")
 
-#library(VIM)
-#library(impute)
+library(VIM)
+library(impute)
 library(ggplot2)
 library(dplyr)
 library(tidyr)
@@ -281,21 +281,21 @@ print(tabla_resultados)
 
 Prueba Shapiro-Wilk
 ```{r}
-resultados_shapiro_wilk <- list()
+# Crea un dataframe para almacenar los resultados de la prueba de Shapiro-Wilk
+resultados_shapiro_wilk <- data.frame(variable = character(), p_value = numeric(), stringsAsFactors = FALSE)
 
 # Realiza la prueba de Shapiro-Wilk para cada variable numérica
-for (columna in colnames(datos_numericos)) {
-  shapiro_wilk_resultado <- shapiro.test(datos_numericos[[columna]])
-  resultados_shapiro_wilk[[columna]] <- shapiro_wilk_resultado
+for (i in 1:ncol(datos_numericos)) {
+  variable <- datos_numericos[, i]
+  shapiro_wilk_resultado <- shapiro.test(variable)
+  # Almacena el nombre de la variable y el p-value en el dataframe
+  resultados_shapiro_wilk[i, "variable"] <- colnames(datos_numericos)[i]
+  resultados_shapiro_wilk[i, "p_value"] <- shapiro_wilk_resultado$p.value
 }
 
-# Muestra los resultados
-for (i in seq_along(resultados_shapiro_wilk)) {
-  cat("Variable:", colnames(datos_numericos)[i], "\n")
-  print(resultados_shapiro_wilk[[i]])
-  cat("\n")
-}
-## hacer tabla
+# Imprime los resultados
+print(resultados_shapiro_wilk)
+
 ```
 
 Correlacion de Spearman
