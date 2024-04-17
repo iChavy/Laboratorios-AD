@@ -303,17 +303,9 @@ Correlacion de Spearman
 # Realiza la correlación de Spearman para cada par de variables numéricas
 correlaciones_spearman <- cor(datos_numericos, method = "spearman")
 
-# Convertir la matriz de correlación en un marco de datos
-correlaciones_spearman_df <- as.data.frame(as.table(correlaciones_spearman))
+# Muestra la matriz de correlación de Spearman
+print(correlaciones_spearman)
 
-# Renombrar las columnas
-colnames(correlaciones_spearman_df) <- c("Variable 1", "Variable 2", "Correlación")
-
-# Filtrar para excluir la correlación de cada variable consigo misma
-correlaciones_spearman_df <- correlaciones_spearman_df[correlaciones_spearman_df$`Variable 1` != correlaciones_spearman_df$`Variable 2`, ]
-
-# Imprimir la tabla
-print(correlaciones_spearman_df)
 ```
 
 Regresión logistica
