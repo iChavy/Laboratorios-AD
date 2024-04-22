@@ -1,34 +1,37 @@
 ---
-title: "lab1cata"
-author: "Catalina Olivares"
+title: "Laboratorio 1"
+author: "Catalina Olivares y Xavier Muñoz Díaz"
 date: "2024-04-08"
 output: html_document
 ---
 
 Instalación y apertura de librerías -> checar bien que librerias funciona (vim impute)
 ```{r}
-#install.packages("foreign")
-#install.packages("RWeka") 
-#install.packages("impute")
-
 library(VIM)
 library(impute)
 library(ggplot2)
 library(dplyr)
 library(tidyr)
+library(pROC)
 ```
 
-Apertura de dataset
+# Carga de datos
 ```{r setup, include=FALSE}
-# Se selecciona el directorio del archivo
-#setwd("/Users/chavy/Documents/Repositorios GitKraken/Laboratorios-AD/Lab-1")
-#setwd("C:/Users/cata/Desktop/Analisislab1")
-
-# Se carga el archivo CSV
 datos <- read.csv("kidney_disease.csv")
 ```
 
-Limpieza de datos
+# Conteo de personas enfermas y sanas antes de la limpieza
+```{r}
+# Cuenta a las personas enfermas (ckd) y sanas (notckd)
+total_enfermos <- sum(datos$classification == "ckd")
+total_sanos <- sum(datos$classification == "notckd")
+
+print(paste("El número de personas enfermas es:", total_enfermos))
+print(paste("El número de personas sanas:", total_sanos))
+```
+
+
+# Limpieza de datos
 ```{r}
 # Reemplaza espacios en blanco con NA
 copia_datos <- datos
@@ -41,7 +44,7 @@ datos_imputados <- kNN(data = copia_datos, imp_var = FALSE)
 datos_limpios <- datos_imputados[,-1]
 ```
 
-Normalización de datos
+# Normalización de datos
 ```{r}
 datos_normalizados <- datos_limpios
 
@@ -58,19 +61,9 @@ datos_normalizados$appet <- ifelse(datos_normalizados$appet == "good", 1, 0)
 datos_normalizados$pe <- ifelse(datos_normalizados$pe == "yes", 1, 0)
 datos_normalizados$ane <- ifelse(datos_normalizados$ane == "yes", 1, 0)
 datos_normalizados$classification <- ifelse(datos_normalizados$classification == "ckd", 1, 0)
-
-
-# Variables numéricas
-#var_numericas <- c("age", "bp", "sg", "al", "su", "bgr", "bu", "sc", "sod", "pot", "hemo", "pcv", "wc", "rc")
-
-# Selecciona solo las variables numéricas
-#datos_numericos <- datos_normalizados[, var_numericas]
-
-# Se transforma a numeric
-#datos_numericos <- sapply(datos_numericos, as.numeric)
 ```
 
-Conteo enfermos y sanos
+Conteo enfermos y sanos después de la limpieza
 ```{r}
 # Cuenta a las personas enfermas (1) y sanas (0)
 total_enfermos <- sum(datos_normalizados$classification == 1)
@@ -81,7 +74,7 @@ print(paste("El número de personas enfermas es:", total_enfermos))
 print(paste("El número de personas sanas:", total_sanos))
 ```
 
-Gráfico de barras
+# Gráfico de barras
 ```{r}
 # Filtra el número de personas enfermas y sanas
 enfermos <- datos_normalizados %>% filter(classification == 1)
@@ -106,7 +99,7 @@ ggplot(estado_salud, aes(x = estado, y = total_personas, fill = estado)) +
   theme_minimal()
 ```
 
-Calcula medidas de dispersion para personas enfermas
+# Calcula medidas de dispersion para personas enfermas
 ```{r}
 # Variables numéricas
 var_numericas <- c("age", "bp", "sg", "al", "su", "bgr", "bu", "sc", "sod", "pot", "hemo", "pcv", "wc", "rc")
@@ -139,7 +132,7 @@ resultados_dispersion_enfermas <- data.frame(
 print (resultados_dispersion_enfermas)
 ```
 
-Calcula medidas de dispersion para personas sanas
+# Calcula medidas de dispersion para personas sanas
 ```{r}
 # Se filtra el conjunto de datos para obtener solo las personas sanas y
 # Se guarda en un data frame solo las variables numéricas
@@ -169,63 +162,133 @@ resultados_dispersion_sanas <- data.frame(
 print(resultados_dispersion_sanas)
 ```
 
-Gráfico de barras para variables categóricas en personas enfermas
+# Gráfico de barras para variables categóricas en personas enfermas
 ```{r}
 # Se seleccionan las variables categóricas
 variables_categoricas <- c("rbc", "pc", "pcc", "ba", "htn", "dm", "cad", "appet", "pe", "ane")
-
-# Se crea un gráfico de barras para cada variable categórica para las personas enfermas
+copia_p_enfermas <- personas_enfermas
+frecuencias <- list()
+# Se crea un gráfico de barras para cada variable categórica para las personas enfermas.
 for (variable in variables_categoricas) {
+  if (variable == "rbc" | variable == "pc") {
+    copia_p_enfermas[[variable]] <- ifelse(copia_p_enfermas[[variable]] == 0, "abnormal", "normal")
+  } else if (variable == "pcc" | variable == "ba") {
+    copia_p_enfermas[[variable]] <- ifelse(copia_p_enfermas[[variable]] == 0, "not present", "present")
+  } else if (variable == "appet") {
+    copia_p_enfermas[[variable]] <- ifelse(copia_p_enfermas[[variable]] == 0, "poor", "good")
+  } else {
+    copia_p_enfermas[[variable]] <- ifelse(copia_p_enfermas[[variable]] == 0, "no", "yes")
+  }
+  # Calcula la frecuencia de cada valor de la variable
+  frecuencias[[variable]] <- table(copia_p_enfermas[[variable]])
+    
   # Se añade un dataframe para el gráfico de barras de la variable actual
-  datos_barras <- data.frame(valor = factor(personas_enfermas[[variable]]))
+  datos_barras <- data.frame(valor = factor(copia_p_enfermas[[variable]]))
   
-  # Creación del gráfico de barras
-  p <- ggplot(datos_barras, aes(x = valor, fill = valor)) +
-    geom_bar() +
-    labs(title = paste("Distribución de", variable, "en personas enfermas"),
-         x = variable,
-         y = "Frecuencia") +
-    theme_minimal() +
-    scale_fill_manual(values = c("red", "green"))
-  
-  # Se muestra el gráfico
+  if (variable == "rbc" | variable == "pc") {
+    p <- ggplot(datos_barras, aes(x = valor, fill = valor)) +
+      geom_bar() +
+      labs(title = paste("Distribución de", variable, "en personas enfermas"),
+           x = variable,
+           y = "Frecuencia") +
+      theme_minimal() +
+      scale_fill_manual(values = c("red", "green"))
+  } else {
+    p <- ggplot(datos_barras, aes(x = valor, fill = valor)) +
+      geom_bar() +
+      labs(title = paste("Distribución de", variable, "en personas enfermas"),
+           x = variable,
+           y = "Frecuencia") +
+      theme_minimal() +
+      scale_fill_manual(values = c("green", "red"))
+  }
   print(p)
 }
 ```
 
-Gráfico de barras para variables categóricas en personas sanas
+# Tabla de frecuencias y su porcentaje
 ```{r}
-
-# Imprimir tabla de frecuencia de cada variable categórica para personas sanas
+# Se usa la lista de frecuencias y se crea un dataframe con las frecuencias y su porcentaje
+frecuencias <- data.frame(variable = character(), valor = character(), frecuencia = numeric(), porcentaje = numeric(), stringsAsFactors = FALSE)
 for (variable in variables_categoricas) {
-  print(table(personas_sanas[[variable]]))
+  # Calcula la frecuencia de cada valor de la variable
+  tabla_frecuencias <- table(copia_p_enfermas[[variable]])
+  # Calcula el porcentaje de cada valor
+  porcentajes <- round(prop.table(tabla_frecuencias) * 100, 2)
+  # Se añade al dataframe
+  for (i in 1:length(tabla_frecuencias)) {
+    frecuencias <- rbind(frecuencias, data.frame(variable = variable, valor = names(tabla_frecuencias)[i], frecuencia = tabla_frecuencias[i], porcentaje = porcentajes[i]))
+  }
 }
+```
 
-# Se crea un gráfico de barras para cada variable categórica para las personas sanas
+
+# Gráfico de barras para variables categóricas en personas sanas
+```{r}
+copia_p_sanas <- personas_sanas
+frecuencias <- list()
+# Se crea un gráfico de barras para cada variable categórica para las personas sanas.
 for (variable in variables_categoricas) {
+  if (variable == "rbc" | variable == "pc") {
+    copia_p_sanas[[variable]] <- ifelse(copia_p_sanas[[variable]] == 0, "abnormal", "normal")
+  } else if (variable == "pcc" | variable == "ba") {
+    copia_p_sanas[[variable]] <- ifelse(copia_p_sanas[[variable]] == 0, "not present", "present")
+  } else if (variable == "appet") {
+    copia_p_sanas[[variable]] <- ifelse(copia_p_sanas[[variable]] == 0, "poor", "good")
+  } else {
+    copia_p_sanas[[variable]] <- ifelse(copia_p_sanas[[variable]] == 0, "no", "yes")
+  }
+  
+  # Calcula la frecuencia de cada valor de la variable
+  frecuencias[[variable]] <- table(copia_p_sanas[[variable]])
+
   # Se añade un dataframe para el gráfico de barras de la variable actual
-  datos_barras <- data.frame(valor = factor(personas_sanas[[variable]]))
+  datos_barras <- data.frame(valor = factor(copia_p_sanas[[variable]]))
   
-  # Creación del gráfico de barras
-  p <- ggplot(datos_barras, aes(x = valor, fill = valor)) +
-    geom_bar() +
-    labs(title = paste("Distribución de", variable, "en personas sanas"),
-         x = variable,
-         y = "Frecuencia") +
-    theme_minimal() +
-    scale_fill_manual(values = c("red", "green"))
-  
-  # Se muestra el gráfico
+  if (variable == "rbc" | variable == "pc") {
+    p <- ggplot(datos_barras, aes(x = valor, fill = valor)) +
+      geom_bar() +
+      labs(title = paste("Distribución de", variable, "en personas sanas"),
+           x = variable,
+           y = "Frecuencia") +
+      theme_minimal() +
+      scale_fill_manual(values = c("red", "green"))
+  } else {
+    p <- ggplot(datos_barras, aes(x = valor, fill = valor)) +
+      geom_bar() +
+      labs(title = paste("Distribución de", variable, "en personas sanas"),
+           x = variable,
+           y = "Frecuencia") +
+      theme_minimal() +
+      scale_fill_manual(values = c("green", "red"))
+  }
   print(p)
 }
 ```
 
-Box plots para variables numéricas
-```{r}
 
+# Tabla de frecuencias y su porcentaje
+```{r}
+# Se usa la lista de frecuencias y se crea un dataframe con las frecuencias y su porcentaje
+frecuencias <- data.frame(variable = character(), valor = character(), frecuencia = numeric(), porcentaje = numeric(), stringsAsFactors = FALSE)
+for (variable in variables_categoricas) {
+  # Calcula la frecuencia de cada valor de la variable
+  tabla_frecuencias <- table(copia_p_sanas[[variable]])
+  # Calcula el porcentaje de cada valor
+  porcentajes <- round(prop.table(tabla_frecuencias) * 100, 2)
+  # Se añade al dataframe
+  for (i in 1:length(tabla_frecuencias)) {
+    frecuencias <- rbind(frecuencias, data.frame(variable = variable, valor = names(tabla_frecuencias)[i], frecuencia = tabla_frecuencias[i], porcentaje = porcentajes[i]))
+  }
+}
+```
+
+
+# Box plots para variables numéricas
+```{r}
 datos_numericos <- rbind(p_enfermas_numericas, p_sanas_numericas)
 
-# Se crean box plots para cada variable numérica
+# Se crean boxplots para cada variable numérica
 boxplots <- list()
 for (columna in colnames(datos_numericos)) {
   boxplot_data <- bind_rows(
@@ -240,20 +303,19 @@ for (columna in colnames(datos_numericos)) {
     theme_minimal()
   boxplots[[columna]] <- boxplot_data
 }
-# Se muestran los box plots
 for (plot in boxplots) {
   print(plot)
 }
 ```
 
 
-prueba de chi-cuadrado
+# Prueba de chi-cuadrado
 ```{r}
 # Lista para almacenar los resultados de la prueba de chi-cuadrado
 resultados_chi_cuadrado <- list()
 
 # Variables categóricas
-variables_categoricas <- c("rbc", "pc", "pcc", "ba", "htn", "dm", "cad", "appet", "pe", "ane")
+variables_categoricas <- c("rbc", "pc", "pcc", "ba", "htn", "dm", "cad", "appet", "pe", "ane", "classification")
 
 # Crea una tabla vacía para almacenar los resultados
 tabla_resultados <- data.frame(variable = character(),
@@ -261,7 +323,6 @@ tabla_resultados <- data.frame(variable = character(),
                                 p_value = numeric(),
                                 stringsAsFactors = FALSE)
 
-# Recorre cada variable categórica
 for (variable in variables_categoricas) {
   # Crea una tabla de contingencia para la variable categórica y la variable de clasificación
   tabla_contingencia <- table(datos_normalizados[[variable]], datos_normalizados$classification)
@@ -275,11 +336,10 @@ for (variable in variables_categoricas) {
                                        x_squared = chi_cuadrado_resultado$statistic,
                                        p_value = chi_cuadrado_resultado$p.value))
 }
-
 print(tabla_resultados)
 ```
 
-Prueba Shapiro-Wilk
+# Prueba Shapiro-Wilk
 ```{r}
 # Crea un dataframe para almacenar los resultados de la prueba de Shapiro-Wilk
 resultados_shapiro_wilk <- data.frame(variable = character(), p_value = numeric(), stringsAsFactors = FALSE)
@@ -292,53 +352,67 @@ for (i in 1:ncol(datos_numericos)) {
   resultados_shapiro_wilk[i, "variable"] <- colnames(datos_numericos)[i]
   resultados_shapiro_wilk[i, "p_value"] <- shapiro_wilk_resultado$p.value
 }
-
-# Imprime los resultados
 print(resultados_shapiro_wilk)
 
 ```
 
-Correlacion de Spearman
+# Correlacion de Spearman
 ```{r}
 # Realiza la correlación de Spearman para cada par de variables numéricas
-correlaciones_spearman <- cor(datos_numericos, method = "spearman")
+# Elimina las filas con NA
+datos_num_na <- datos_normalizados %>% na.omit()
+# se transforma a numeric
+datos_num_na <- sapply(datos_num_na, as.numeric)
+datos_num_na <- datos_num_na %>% na.omit()
 
-# Muestra la matriz de correlación de Spearman
-print(correlaciones_spearman)
+matriz_correlacion <- cor(datos_num_na, method = "spearman")
+print(matriz_correlacion)
 
 ```
 
-Regresión logistica
+# Regresión logistica
 ```{r}
-# Seleccionar las variables numéricas
-datos_numericos <- datos_normalizados %>%
-  select_if(is.numeric)
+# Se selecciona una semilla y se limpian los datos
+set.seed(11)
+datos_normalizados_na<- datos_normalizados %>% na.omit()
+datos_normalizados_na <- na.omit(datos_normalizados_na)
 
-# Dividir el conjunto de datos en entrenamiento y prueba
-set.seed(123)
-indices_entrenamiento <- sample(1:nrow(datos_numericos), 0.7 * nrow(datos_numericos))
-entrenamiento <- datos_numericos[indices_entrenamiento, ]
-prueba <- datos_numericos[-indices_entrenamiento, ]
+# Datos de entrenamiento y prueba
+num_filas <- nrow(datos_normalizados_na)
+n_entrenamiento <- floor(0.8 * num_filas)
+muestras <- sample.int(n = num_filas, size = n_entrenamiento, replace = FALSE)
+entrenamiento <- datos_normalizados_na[muestras, ]
+prueba <- datos_normalizados_na[-muestras, ]
 
-# Ajustar un modelo de regresión logística
-modelo_logistico <- glm(classification ~ ., data = entrenamiento, family = "binomial")
+# Modelo de regresión logística
+modelo_logistico <- glm(classification ~ hemo + sg, data = entrenamiento, family = "binomial"(link = "logit"))
+print(summary(modelo_logistico))
 
-# Realizar la predicción en los datos de prueba
+# Predicción en los datos de prueba
 prediccion <- predict(modelo_logistico, newdata = prueba, type = "response")
 
-# Convertir la predicción a valores binarios usando un umbral de probabilidad de 0.5
+# Se convierte la predicción a valores binarios usando un umbral de probabilidad de 0.5
 prediccion_binaria <- ifelse(prediccion > 0.5, 1, 0)
 
-# Calcular la matriz de confusión
+# Se calcula la matriz de confusión
 matriz_confusion <- table(prueba$classification, prediccion_binaria)
 
-# Calcular la precisión del modelo
+# Se calcula la precisión del modelo
 precision <- sum(diag(matriz_confusion)) / sum(matriz_confusion)
 
-# Mostrar la matriz de confusión y la precisión del modelo
-print("Matriz de confusión:")
-print(matriz_confusion)
 print(paste("Precisión del modelo:", precision))
-
-
 ```
+
+# Curva ROC
+```{r}
+# Cálculo de la curva ROC para el conjunto de entrenamiento
+roc_entrenamiento <- roc(entrenamiento$classification, predict(modelo_logistico, newdata = entrenamiento, type = "response"))
+# Cálculo la curva ROC para el conjunto de prueba
+roc_prueba <- roc(prueba$classification, predict(modelo_logistico, newdata = prueba, type = "response"))
+
+# Gráficos
+plot(roc_entrenamiento, col = "blue", lwd = 2, main = "Curvas ROC para Entrenamiento y Prueba")
+plot(roc_prueba, col = "red", lwd = 2, add = TRUE)
+legend("bottomright", legend = c("Entrenamiento", "Prueba"), col = c("blue", "red"), lty = c(1, 1, 2), lwd = 2)
+```
+
