@@ -1,0 +1,123 @@
+---
+title: "Laboratorio 2"
+author: "Catalina Olivares y Xavier Muñoz Díaz"
+date: "2024-05-08"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Librerías
+```{r}
+library(VIM)
+library(impute)
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+library(cluster)
+library(factoextra)
+library(stats)
+```
+
+# Carga de datos
+```{r setup, include=FALSE}
+datos <- read.csv("kidney_disease.csv")
+```
+
+# Limpieza de datos
+```{r}
+# Reemplaza espacios en blanco con NA
+copia_datos <- datos
+copia_datos[copia_datos == ""] <- NA
+
+# Imputación KNN
+datos_imputados <- kNN(data = copia_datos, imp_var = FALSE)
+
+# Quita columna id y de la clase
+datos_limpios <- datos_imputados[,-1]
+datos_limpios <- datos_limpios[,-25]
+```
+
+# Distancia de Manhattan
+```{r}
+# Variables categoricas
+var_categoricas <- c("rbc", "pc", "pcc", "ba", "htn", "dm", "cad", "appet", "pe", "ane")
+# Convertir las variables categóricas a factores
+datos_l <- datos_limpios
+datos_l[, var_categoricas] <- lapply(datos_l[, var_categoricas], as.factor)
+
+# Convertir las variables categóricas a numericos
+datos_l[, var_categoricas] <- lapply(datos_l[, var_categoricas], as.numeric)
+
+# elimina las filas con CELDAS que poseen el valor "?"
+datos_l <- datos_l %>%
+  filter_all(all_vars(. != "?"))
+# Calcular distancia de Manhattan
+dist_manhattan <- dist(datos_l, method = "manhattan")
+dist_manhattan
+summary(dist_manhattan)
+
+
+```
+
+
+# Normalización de datos
+```{r}
+datos_normalizados <- datos_limpios
+
+# Binarización de variables categóricas
+# Los valores normal, present, yes, good y cdk toman el valor 1)
+datos_normalizados$rbc <- ifelse(datos_normalizados$rbc == "normal", 1, 0)
+datos_normalizados$pc <- ifelse(datos_normalizados$pc == "normal", 1, 0)
+datos_normalizados$pcc <- ifelse(datos_normalizados$pcc == "present", 1, 0)
+datos_normalizados$ba <- ifelse(datos_normalizados$ba == "present", 1, 0)
+datos_normalizados$htn <- ifelse(datos_normalizados$htn == "yes", 1, 0)
+datos_normalizados$dm <- ifelse(datos_normalizados$dm == "yes", 1, 0)
+datos_normalizados$cad <- ifelse(datos_normalizados$cad == "yes", 1, 0)
+datos_normalizados$appet <- ifelse(datos_normalizados$appet == "good", 1, 0)
+datos_normalizados$pe <- ifelse(datos_normalizados$pe == "yes", 1, 0)
+datos_normalizados$ane <- ifelse(datos_normalizados$ane == "yes", 1, 0)
+```
+
+
+
+# Cálculo de la distancia de Grower con variables categoricas y numericas
+
+
+
+```{r}
+
+# Convertir las variables categóricas a factores
+#datos_l <- datos_limpios
+#datos_l$categoria <- as.factor(c("rbc", "pc", "pcc", "ba", "htn", "dm", "cad", "appet", "pe", "ane"))
+
+set.seed(11)
+distancia_gower <- daisy(datos_normalizados, metric = "gower", type = list(logratio = 3))
+summary(distancia_gower)
+
+distancia <- as.matrix(distancia_gower)
+
+sse = rep(0,10)
+for (i in 1:10){
+  grupos = kmeans(distancia, i)
+  sse[i] = grupos$tot.withinss
+}
+```
+
+
+```{r}
+set.seed(11)
+
+var_numericas <- c("age", "bp", "sg", "al", "su", "bgr", "bu", "sc", "sod", "pot", "hemo", "pcv", "wc", "rc")
+var_categoricas <- c("rbc", "pc", "pcc", "ba", "htn", "dm", "cad", "appet", "pe", "ane")
+
+# Convertir las variables categóricas a factores
+datos_l <- datos_limpios
+datos_l[, var_categoricas] <- lapply(datos_l[, var_categoricas], as.factor)
+
+# Calcular la distancia de Gower
+distancia_gower <- daisy(datos_l, metric = "gower", type = list(numeric = var_numericas, symmetric = var_categoricas))
+summary(distancia_gower)
+```

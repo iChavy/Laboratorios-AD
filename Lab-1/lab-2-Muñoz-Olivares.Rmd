@@ -1,0 +1,111 @@
+---
+title: "Laboratorio 2"
+author: "Catalina Olivares y Xavier Muñoz Díaz"
+date: "2024-05-5"
+output: html_document
+---
+
+# Instalación y apertura de librerías
+```{r}
+library(VIM)
+library(impute)
+library(dplyr)
+library(tidyr)
+library(cluster)
+library(factoextra)
+library(stats)
+```
+
+# Carga de datos
+```{r setup, include=FALSE}
+# Se carga el archivo CSV
+datos_orginales <- read.csv("kidney_disease.csv")
+```
+
+# Preprocesamiento de datos
+```{r}
+copia_datos <- datos_orginales
+copia_datos[copia_datos == ""] <- NA
+
+# Imputación KNN
+datos_imputados <- kNN(data = copia_datos, imp_var = FALSE)
+
+# Quita columna id y de la clase
+datos_limpios <- datos_imputados[,-1]
+datos_limpios <- datos_limpios[,-25]
+
+
+# Convierte las variables de categoricas a factores
+datos <- mutate_if(datos_limpios, is.character, as.factor)  
+```
+
+
+# Se aplican distintos métodos para obtener el número óptimo de clústeres a construir en el algoritmo de K-means.
+## Método del Codo
+```{r}
+set.seed(0)
+
+# Calcula SSE y luego lo grafica
+SSE = rep(0, 10)
+for (k in 1:10) {
+  grupos = kmeans(distancia_gower, k)
+  SSE[k] = grupos$tot.withinss
+}
+
+plot(1:10, SSE, type = "b", pch = 16, frame = FALSE, 
+     xlab = "Número de clusters k", ylab = "SSE",
+     main = "Número óptimo de clusters (Método del Codo)", 
+     xaxt = "n")  
+
+eje_x <- seq(1, 10, by = 1) 
+axis(1, at = eje_x, labels = eje_x) 
+```
+
+# Método de la silueta
+```{r}
+distancia_gower<-as.matrix(distancia_gower)
+fviz_nbclust(distancia_gower,kmeans, method = "silhouette",k.max = 10)+
+  labs(title= "Número óptimo de clusters (Método de la Silueta)") +
+  xlab("Número de clusters k") +
+  ylab("Ancho promedio de la silueta")
+```
+
+# Dado el resulatdo de k obtenido en ambos graficos, se aplica el algoritmo K-means para k=2 
+```{r}
+# Aplicar K-means para k=2
+k2 <- kmeans(distancia_gower, 2, nstart = 24)
+fviz_cluster(k2, data = distancia_gower, ggtheme = theme_minimal())
+```
+
+# Se hace un summary de los clusters obtenidos
+```{r}
+# Asigna el número de cluster a cada observación de los datos y genera un resumen de cada cluster
+resultados_k2 <- datos %>%
+  mutate(cluster = k2$cluster) %>%
+  group_by(cluster) %>%
+  do(k2_summary = summary(.))
+
+resultados_k2$k2_summary
+```
+
+# Coefiente de silueta para evaluar la calidad del agrupamiento
+````{r}
+# Coeficiente de silueta para k=2
+silhouette_result_k2 <- silhouette(k2$cluster, distancia_gower)
+print(silhouette_result_k2)
+
+# Grafica de la silueta
+fviz_silhouette(silhouette_result_k2)
+`````
+
+# Se grafican los datos con los centroides
+```{r}
+# Se obtienen los centroides de los clusters
+centroides <- as.data.frame(k2$centers)
+print(centroides)
+names(centroides) <- c("x", "y")  
+
+# Se grafican los datos con los centroides
+grafico <- fviz_cluster(k2, data = distancia_gower, geom = "point", ggtheme = theme_minimal())
+grafico + geom_point(data = centroides, aes(x = x, y = y), color=(values = c( "red","green")), size = 3, shape = 15)  # Cambiar a shape = 15 para cuadrado
+```
