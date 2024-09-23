@@ -1,0 +1,109 @@
+---
+title: "Laboratorio 4"
+author: "Catalina Olivares y Xavier Muñoz Díaz"
+date: "2024-08-11"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Librerías
+```{r}
+library(VIM)
+library(impute)
+library(ggplot2)
+library(C50)
+library(caret)
+library(dplyr)
+library(ggpubr)
+library(pROC)
+```
+
+# Carga de datosin
+```{r setup, include=FALSE}
+datos <- read.csv("kidney_disease.csv")
+```
+
+# Limpieza de datos
+```{r}
+# Reemplaza espacios en blanco con NA
+copia_datos <- datos
+copia_datos[copia_datos == ""] <- NA
+copia_datos[copia_datos == "	?"] <- NA
+
+# Imputación KNN
+datos_imputados <- kNN(data = copia_datos, imp_var = FALSE)
+
+# Cambia valores de classification "ckd\t" por "ckd"
+datos_imputados$classification[datos_imputados$classification == "ckd\t"] <- "ckd"
+
+# Quita la columna id
+datos_limpios <- datos_imputados[,-1]
+
+# Asigna niveles a "ckd" y "notckd"
+datos_limpios$classification <- factor(datos_limpios$classification, levels = c("ckd", "notckd"))
+```
+
+# Árbol de decisión
+```{r }
+set.seed(100)
+
+# Conjunto de entrenamiento y prueba
+train_sample = createDataPartition(datos_limpios$classification, p=0.7)$Resample1
+datos_training = datos_limpios[train_sample, ]
+datos_test = datos_limpios[-train_sample, ]
+```
+
+
+```{r }
+# Convierte variables a factor
+datos_training[] <- lapply(datos_training, function(x) if(is.character(x) || is.factor(x)) factor(x) else x)
+for (col in names(datos_test)) {
+  if (is.factor(datos_training[[col]])) {
+    datos_test[[col]] <- factor(datos_test[[col]], levels = levels(datos_training[[col]]))
+  }
+}
+
+# Reglas
+arbol = C5.0(classification ~ ., datos_training)
+reglas = C5.0(x = datos_training[, -25], y = datos_training$classification, rules = T)
+prediccion_clase  = predict(arbol, datos_test[,-25], type = "class")
+probabilidad_clase = predict(arbol, datos_test[,-25], type = "prob")
+```
+
+
+```{r }
+# Gráfico del árbol
+plot(arbol, cex = 0.8)
+summary(arbol)
+```
+
+```{r }
+summary(reglas)
+reglas
+
+# Predicciones y probabilidades
+predicciones <- predict(arbol, datos_test)
+probabilidades <- predict(arbol, datos_test, type = "prob")
+
+# Matriz de confusión
+confusion <- confusionMatrix(predicciones, datos_test$classification)
+
+# Precisión, Recall y F1-score
+precision <- confusion$byClass["Pos Pred Value"]
+recall <- confusion$byClass["Sensitivity"]
+f1 <- (2 * precision * recall) / (precision + recall)
+
+# Área bajo la curva ROC (AUC)
+roc_curve <- roc(datos_test$classification, as.numeric(probabilidades[,2]))
+auc <- auc(roc_curve)
+
+# Imprimir métricas
+cat("Precisión: ", precision, "\n")
+cat("Recall: ", recall, "\n")
+cat("F1-score: ", f1, "\n")
+cat("AUC: ", auc, "\n")
+confusion
+```
